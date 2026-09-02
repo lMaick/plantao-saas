@@ -277,3 +277,5 @@ As decisões ainda abertas são:
 - se pagamentos anteriores à data do plantão (adiantamentos) serão permitidos;
 - política de exclusão de conta, retenção e eventual exportação antes do lançamento público;
 - necessidade e canal de notificações futuras.
+
+O schema, ownership, RLS, índices e operações transacionais estão detalhados em [docs/DATABASE.md](C:/Users/Maick/Documents/plantao saas/docs/DATABASE.md) e [docs/ARCHITECTURE.md](C:/Users/Maick/Documents/plantao saas/docs/ARCHITECTURE.md).

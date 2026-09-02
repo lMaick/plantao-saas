@@ -76,6 +76,48 @@ Este documento registra decisões confirmadas para evitar que escolhas important
 - **Decisão:** Cancelamento e correção devem preservar registros com efeitos financeiros; exclusões destrutivas devem ser evitadas.
 - **Implicação:** Pagamentos não podem desaparecer ou ser alterados silenciosamente.
 
+### D-013 — Ownership explícito
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** Todas as entidades de domínio terão `user_id` explícito, inclusive obrigações e pagamentos cuja propriedade poderia ser inferida.
+- **Implicação:** RLS, índices, consultas e FKs compostas usarão ownership direto como defesa em profundidade.
+
+### D-014 — Perfil separado da identidade
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** Supabase Auth será a identidade; `profiles` armazenará apenas preferências e metadados mínimos, em relação 1:1 com `auth.users`.
+- **Implicação:** Dados operacionais não serão acoplados a campos de autenticação.
+
+### D-015 — Datas, timezone e moeda
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** Início/fim de plantões usam `timestamptz`; pagamento e vencimento usam `date`; o perfil possui timezone IANA; dinheiro usa inteiros em centavos e código de moeda.
+- **Implicação:** Vencimento é dia civil no timezone do usuário e não há conversão cambial no MVP.
+
+### D-016 — Responsável tipado
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** A obrigação referencia exatamente um local ou um contato pagador, com `payer_type` e constraints/FKs correspondentes.
+- **Implicação:** Não será criada uma entidade abstrata de contraparte no MVP.
+
+### D-017 — Cardinalidade e operações financeiras
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** Unique por `(user_id, shift_id)` garante no máximo uma obrigação por plantão; pagamentos são múltiplos; realização, pagamento e correções críticas são transacionais.
+- **Implicação:** RPC/funções PostgreSQL serão usadas para impedir estados intermediários e excesso por concorrência.
+
+### D-018 — Status derivado
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** A camada de leitura usará view/query compartilhada para derivar recebido, saldo e atraso.
+- **Implicação:** Não haverá coluna mutável de status financeiro como fonte de verdade.
+
+### D-019 — Arquivamento de cadastros
+
+- **Status:** Decidida na Missão 2.
+- **Decisão:** Locais e contatos referenciados serão arquivados, não excluídos destrutivamente.
+- **Implicação:** Histórico permanece legível e novos plantões podem deixar de usar cadastros arquivados.
+
 ## Decisões pendentes
 
 As decisões pendentes estão consolidadas na seção [Decisões pendentes de PRODUCT.md](C:/Users/Maick/Documents/plantao%20saas/PRODUCT.md) e nas questões de implementação explicitadas em [docs/DOMAIN.md](C:/Users/Maick/Documents/plantao%20saas/docs/DOMAIN.md).

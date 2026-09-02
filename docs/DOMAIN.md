@@ -166,8 +166,8 @@ Cada pagamento reduz o saldo. O recebimento integral ocorre apenas quando o sald
 ## 6. Edições, cancelamento e correção
 
 - Agendado: edição normal, inclusive valor, horários, local e responsável.
-- Realizado sem pagamento: permitir correções de dados não financeiros; alterar valor deve recalcular o valor devido da obrigação, desde que não crie saldo negativo e haja confirmação clara.
-- Realizado com pagamento: não alterar silenciosamente o valor devido. Recomenda-se bloquear a edição do valor e exigir uma ação de “corrigir lançamento”, que preserve pagamentos e impeça saldo negativo; a política exata de ajuste ainda é decisão pendente.
+- Realizado sem pagamento: permitir correções de dados não financeiros; alterar valor deve atualizar plantão e obrigação na mesma operação, desde que não crie saldo negativo e haja confirmação clara.
+- Realizado com pagamento: não alterar silenciosamente o valor devido. Uma operação transacional pode atualizar plantão e obrigação se o novo valor for maior ou igual ao total recebido; se for menor, deve rejeitar até que pagamentos sejam corrigidos explicitamente.
 - Plantão agendado futuro sem efeitos financeiros pode ser cancelado, não necessariamente excluído.
 - Plantão realizado sem pagamento deve continuar visível como obrigação com saldo integral.
 - Plantão com pagamento não deve ser excluído; pode ser corrigido/anulado preservando o histórico.
@@ -199,4 +199,3 @@ Cada pagamento reduz o saldo. O recebimento integral ocorre apenas quando o sald
 ## 9. Privacidade e evolução
 
 O domínio não inclui prontuários, pacientes ou dados clínicos. A futura implementação deve aplicar isolamento rigoroso por usuário, especialmente com RLS, e coletar somente dados necessários. Notificações podem consultar vencimento e saldo no futuro, mas não são parte deste modelo operacional do MVP.
-
