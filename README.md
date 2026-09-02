@@ -1,11 +1,36 @@
 # Plantão SaaS
 
-Fundação documental do projeto de um SaaS mobile-first para profissionais de saúde que trabalham por plantões ou serviços avulsos.
+Fundação técnica de um SaaS mobile-first para profissionais de saúde controlarem plantões, recebimentos e valores a receber.
 
-O produto deve centralizar o fluxo:
+O produto centraliza o fluxo **plantão → obrigação financeira → pagamento**. A visão está em [PRODUCT.md](PRODUCT.md), o modelo conceitual em [docs/DOMAIN.md](docs/DOMAIN.md), a arquitetura em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), o schema em [docs/DATABASE.md](docs/DATABASE.md) e as decisões em [docs/DECISIONS.md](docs/DECISIONS.md).
 
-**plantão → obrigação financeira → pagamento**
+## Pré-requisitos
 
-Esta pasta ainda não contém a implementação do SaaS. A visão, o escopo do MVP, as regras identificadas, os riscos e as decisões pendentes estão documentados em [PRODUCT.md](PRODUCT.md). O modelo conceitual detalhado está em [docs/DOMAIN.md](docs/DOMAIN.md).
+- Node.js 20.9 ou superior
+- npm
 
-Decisões de produto e arquitetura que precisarem ser preservadas ao longo do desenvolvimento devem ser registradas em [docs/DECISIONS.md](docs/DECISIONS.md). A arquitetura técnica está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e o schema proposto em [docs/DATABASE.md](docs/DATABASE.md).
+## Instalação
+
+```bash
+npm install
+```
+
+Copie `.env.example` para `.env.local` e preencha as variáveis quando houver um projeto Supabase configurado. A página inicial não exige credenciais para executar.
+
+## Comandos
+
+```bash
+npm run dev       # servidor local
+npm run lint      # lint
+npm run typecheck # verificação TypeScript
+npm run build     # build de produção
+npm run start     # servir o build
+```
+
+## Stack
+
+- Next.js com App Router e TypeScript
+- Tailwind CSS e shadcn/ui
+- Supabase JS e Supabase SSR
+- Zod
+- Vercel como destino futuro de deploy
