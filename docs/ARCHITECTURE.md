@@ -49,6 +49,8 @@ Supabase Auth será a identidade. A tabela `profiles` será um perfil 1:1 opcion
 
 `auth.uid()` é a única fonte de identidade para RLS. A aplicação nunca confiará em um `user_id` enviado pelo navegador.
 
+Na primeira fatia implementada, `/login` e `/cadastro` usam Server Actions com o cliente SSR do Supabase. O callback `/auth/confirm` recebe `token_hash` e `type`, valida os parâmetros e executa `verifyOtp`; o cliente server-side grava a sessão nos cookies antes do redirecionamento para `/app`. O `src/proxy.ts` atualiza os cookies da sessão por requisição e protege `/app` no servidor, redirecionando usuários conforme o estado autenticado. A rota `/app` é o único ponto responsável por garantir o perfil: ela insere somente `{ id: auth.uid() }`, deixando timezone e moeda para os defaults do banco; conflito de inserção simultânea é tratado como perfil já existente. O template de confirmação do Supabase deve apontar para `/auth/confirm?token_hash={{ .TokenHash }}&type={{ .Type }}`, e a origem usada no cadastro precisa estar cadastrada nas Redirect URLs do projeto; essa configuração externa não é alterada pelo repositório.
+
 ## 4. Ownership
 
 Todas as tabelas de domínio (`locations`, `contacts`, `shifts`, `obligations`, `payments`) terão `user_id` explícito, mesmo quando a propriedade pudesse ser inferida.
