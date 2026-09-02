@@ -148,6 +148,12 @@ Este documento registra decisões confirmadas para evitar que escolhas important
 - **Decisão:** Realização, registro, correção e anulação financeira usam RPCs atômicas com ownership derivado de `auth.uid()`, locks de obrigação quando o saldo é calculado e preservação de histórico.
 - **Implicação:** `obligations` e `payments` não aceitam INSERT/UPDATE financeiro direto pela Data API; `shifts` não pode ser atualizado diretamente para `realized`.
 
+### D-025 — Sessão SSR e garantia do perfil
+
+- **Status:** Implementada na Missão 5B.
+- **Decisão:** Supabase Auth usa o cliente SSR do `@supabase/ssr`; o proxy do Next.js atualiza cookies e protege a área autenticada. O perfil é criado no primeiro acesso autenticado, usando apenas o ID retornado pelo Auth e os defaults do banco.
+- **Implicação:** O cadastro permanece compatível com confirmação de e-mail ligada ou desligada, sem criar perfil para uma identidade que ainda não tenha sessão autenticada.
+
 ## Decisões pendentes
 
 As decisões pendentes estão consolidadas na seção [Decisões pendentes de PRODUCT.md](../PRODUCT.md) e nas questões de implementação explicitadas em [docs/DOMAIN.md](DOMAIN.md).

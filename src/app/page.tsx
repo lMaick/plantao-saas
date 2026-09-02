@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -15,14 +15,23 @@ export default function Home() {
             Controle seus plantões, recebimentos e valores a receber.
           </p>
         </div>
-        <div className="space-y-4">
-          <Button className="bg-cyan-300 text-slate-950 hover:bg-cyan-200">
-            Fundação técnica configurada
-          </Button>
-          <p className="text-sm text-slate-400">
-            O produto será construído em etapas simples e confiáveis.
-          </p>
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
+          <Link
+            href="/cadastro"
+            className="rounded-xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+          >
+            Criar minha conta
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-xl border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-300 hover:text-cyan-200"
+          >
+            Entrar
+          </Link>
         </div>
+        <p className="text-sm text-slate-400">
+          O produto será construído em etapas simples e confiáveis.
+        </p>
       </section>
     </main>
   );
