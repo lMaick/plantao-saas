@@ -1,0 +1,11 @@
+# Plantão SaaS
+
+Fundação documental do projeto de um SaaS mobile-first para profissionais de saúde que trabalham por plantões ou serviços avulsos.
+
+O produto deve centralizar o fluxo:
+
+**plantão → obrigação financeira → pagamento**
+
+Esta pasta ainda não contém a implementação do SaaS. A visão, o escopo do MVP, as regras identificadas, os riscos e as decisões pendentes estão documentados em [PRODUCT.md](C:/Users/Maick/Documents/plantao%20saas/PRODUCT.md). O modelo conceitual detalhado está em [docs/DOMAIN.md](C:/Users/Maick/Documents/plantao%20saas/docs/DOMAIN.md).
+
+Decisões de produto e arquitetura que precisarem ser preservadas ao longo do desenvolvimento devem ser registradas em [docs/DECISIONS.md](C:/Users/Maick/Documents/plantao%20saas/docs/DECISIONS.md).
