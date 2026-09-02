@@ -184,3 +184,19 @@ Uma política de pagamento baseada apenas em `payments.user_id = auth.uid()` é 
 ## 10. Exclusão e arquivamento
 
 `locations` e `contacts` serão arquiváveis. `shifts` realizados, `obligations` e `payments` serão preservados; correções usam estado de validade/anulação e operações explícitas. A política final de exclusão da conta é decisão pendente antes do lançamento público.
+
+## 11. RPCs financeiras implementadas
+
+A migration financeira expõe somente para `authenticated` as funções `SECURITY DEFINER` abaixo. Todas derivam o proprietário de `auth.uid()`, usam `set search_path = ''` e qualificam referências ao schema `public`:
+
+- `realize_shift(shift_id, amount_due_cents, payer_type, payer_id, due_date)`: bloqueia o plantão agendado, valida pagador ativo, grava o valor histórico e cria uma única obrigação na mesma transação.
+- `register_payment(obligation_id, amount_cents, payment_date, notes)`: bloqueia a obrigação, soma pagamentos válidos, impede overpayment e valida a data no timezone do perfil.
+- `correct_obligation_amount(obligation_id, new_amount_due_cents)`: bloqueia obrigação e plantão, exige valor não inferior ao recebido e sincroniza o valor histórico do plantão.
+- `void_payment(payment_id)`: preserva o pagamento e marca `voided_at`, rejeitando nova anulação.
+- `correct_payment(payment_id, new_amount_cents, new_payment_date, new_notes)`: anula o pagamento anterior e cria a correção na mesma transação, sem permitir trocar de obrigação.
+
+`anon` e `public` não possuem execução dessas funções. O INSERT direto de `obligations` e `payments` permanece sem grant. UPDATE direto de `obligations`, `payments` e `shifts` é revogado para `authenticated`; alterações financeiras e a realização passam pelas RPCs.
+
+O INSERT direto de `shifts` permanece disponível somente para novos registros `scheduled`; um trigger rejeita tentativas de inserir diretamente um plantão `realized`. A transição para realizado ocorre exclusivamente em `realize_shift`.
+
+Nas operações que envolvem uma obrigação e um pagamento, a ordem de locks é sempre `obligation -> payment`. `realize_shift` usa `shift -> criação da obligation`, e `correct_obligation_amount` usa `obligation -> shift`; nenhuma RPC existente adquire esses pares na ordem inversa.

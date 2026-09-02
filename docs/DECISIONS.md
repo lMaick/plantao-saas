@@ -142,6 +142,12 @@ Este documento registra decisões confirmadas para evitar que escolhas important
 - **Decisão:** Alteração do valor devido exige operação transacional e `novo amount_due_cents >= soma dos pagamentos válidos`.
 - **Implicação:** Nenhum pagamento é reduzido, apagado ou anulado silenciosamente.
 
+### D-024 — Operações financeiras transacionais
+
+- **Status:** Implementada na Missão 5A.
+- **Decisão:** Realização, registro, correção e anulação financeira usam RPCs atômicas com ownership derivado de `auth.uid()`, locks de obrigação quando o saldo é calculado e preservação de histórico.
+- **Implicação:** `obligations` e `payments` não aceitam INSERT/UPDATE financeiro direto pela Data API; `shifts` não pode ser atualizado diretamente para `realized`.
+
 ## Decisões pendentes
 
 As decisões pendentes estão consolidadas na seção [Decisões pendentes de PRODUCT.md](../PRODUCT.md) e nas questões de implementação explicitadas em [docs/DOMAIN.md](DOMAIN.md).

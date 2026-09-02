@@ -172,3 +172,15 @@ Componentes visuais não devem conter regras financeiras. Queries e casos de uso
 - Um pagamento com `user_id` correto, mas obrigação de outro usuário, deve falhar na FK composta e na política RLS.
 - Nunca expor service role key no navegador.
 - Dados clínicos de pacientes não fazem parte do domínio.
+
+## 14. RPCs financeiras
+
+A migration financeira implementa `realize_shift`, `register_payment`, `correct_obligation_amount`, `void_payment` e `correct_payment` como operações atômicas `SECURITY DEFINER`. Cada função exige usuário autenticado por `auth.uid()`, não recebe `user_id` do cliente, usa `set search_path = ''` e limita `EXECUTE` à role `authenticated`.
+
+`register_payment` bloqueia a obrigação com `FOR UPDATE` antes de somar pagamentos válidos (`voided_at IS NULL`), impedindo overpayment sob concorrência. A data mínima do pagamento é comparada à data civil de `starts_at` convertida no timezone armazenado em `profiles`.
+
+Como as tabelas financeiras não concedem INSERT e não concedem UPDATE direto de valores financeiros, a Data API não pode contornar as operações transacionais. UPDATE direto de `shifts` também é revogado para impedir realização sem obrigação; a realização ocorre somente em `realize_shift`.
+
+Um trigger complementar rejeita INSERT direto de `shifts` com estado `realized`, mantendo a obrigação como efeito obrigatório da operação oficial de realização.
+
+Para evitar ciclos de locks, operações que envolvem obrigação e pagamento seguem a ordem `obligation -> payment`: `register_payment` bloqueia a obrigação, e `void_payment`/`correct_payment` identificam a obrigação, bloqueiam-na e só então bloqueiam o pagamento. `correct_obligation_amount` mantém `obligation -> shift`, enquanto `realize_shift` usa `shift -> criação da obligation`.
