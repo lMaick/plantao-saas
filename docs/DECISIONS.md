@@ -1,6 +1,6 @@
 # Registro de decisões — Plantão SaaS
 
-Este documento registra decisões confirmadas para evitar que escolhas importantes sejam perdidas entre as fases do projeto. Decisões ainda não aprovadas devem permanecer em [PRODUCT.md](C:/Users/Maick/Documents/plantao%20saas/PRODUCT.md) como **DECISÃO PENDENTE**.
+Este documento registra decisões confirmadas para evitar que escolhas importantes sejam perdidas entre as fases do projeto. Decisões ainda não aprovadas devem permanecer em [PRODUCT.md](../PRODUCT.md) como **DECISÃO PENDENTE**.
 
 ## Decisões confirmadas
 
@@ -118,6 +118,30 @@ Este documento registra decisões confirmadas para evitar que escolhas important
 - **Decisão:** Locais e contatos referenciados serão arquivados, não excluídos destrutivamente.
 - **Implicação:** Histórico permanece legível e novos plantões podem deixar de usar cadastros arquivados.
 
+### D-020 — Local obrigatório
+
+- **Status:** Decidida pelo CEO na Missão 2.1.
+- **Decisão:** Todo plantão deve possuir local; o contato repassador continua opcional.
+- **Implicação:** `shifts.location_id` será `NOT NULL` e terá FK composta com ownership.
+
+### D-021 — Valor por estado e fonte financeira
+
+- **Status:** Decidida pelo CEO na Missão 2.1.
+- **Decisão:** Plantão agendado ou cancelado pode ter valor nulo ou positivo; realizado exige valor positivo. Ao realizar, a obrigação copia o valor e torna-se a fonte financeira.
+- **Implicação:** A regra não é “nulo somente para agendado”; alterações posteriores passam pela operação transacional de obrigação.
+
+### D-022 — Pagamento sem adiantamento
+
+- **Status:** Decidida pelo CEO na Missão 2.1.
+- **Decisão:** A data financeira do pagamento deve ser igual ou posterior à data civil de início do plantão.
+- **Implicação:** A RPC de pagamento valida a data usando o timezone do perfil e a cadeia obrigação → plantão.
+
+### D-023 — Correção de obrigação com pagamentos
+
+- **Status:** Decidida pelo CEO na Missão 2.1.
+- **Decisão:** Alteração do valor devido exige operação transacional e `novo amount_due_cents >= soma dos pagamentos válidos`.
+- **Implicação:** Nenhum pagamento é reduzido, apagado ou anulado silenciosamente.
+
 ## Decisões pendentes
 
-As decisões pendentes estão consolidadas na seção [Decisões pendentes de PRODUCT.md](C:/Users/Maick/Documents/plantao%20saas/PRODUCT.md) e nas questões de implementação explicitadas em [docs/DOMAIN.md](C:/Users/Maick/Documents/plantao%20saas/docs/DOMAIN.md).
+As decisões pendentes estão consolidadas na seção [Decisões pendentes de PRODUCT.md](../PRODUCT.md) e nas questões de implementação explicitadas em [docs/DOMAIN.md](DOMAIN.md).

@@ -63,14 +63,14 @@ O MVP deve resolver excepcionalmente bem:
 Estas são entidades de domínio, não uma definição final de banco de dados:
 
 - **Usuário/profissional:** pessoa que utiliza o sistema e é dona dos seus registros.
-- **Local de trabalho:** hospital, clínica, UPA ou outro local onde o serviço ocorre.
+- **Local de trabalho:** hospital, clínica, UPA ou outro local onde o serviço ocorre; obrigatório em todo plantão.
 - **Contato:** pessoa relacionada ao plantão ou ao pagamento, como quem repassou o plantão, coordenador, responsável financeiro ou intermediário.
 - **Plantão:** trabalho agendado, realizado ou cancelado, com data/hora inicial e final, local, valor quando conhecido e observações.
 - **Responsável pelo pagamento:** pessoa ou organização que deve pagar o plantão; pode ser o local, um contato ou outro responsável informado pelo usuário.
 - **Obrigação financeira:** valor devido gerado por um plantão realizado, com previsão opcional, responsável e saldo derivado.
 - **Pagamento:** recebimento parcial ou integral aplicado à obrigação; uma obrigação pode ter vários pagamentos.
 
-Um plantão agendado pode existir sem valor. Para ser realizado, deve possuir valor definido e originar uma obrigação financeira. O modelo conceitual detalhado está em [docs/DOMAIN.md](C:/Users/Maick/Documents/plantao%20saas/docs/DOMAIN.md).
+Um plantão agendado pode existir sem valor. Para ser realizado, deve possuir valor definido e originar uma obrigação financeira. O modelo conceitual detalhado está em [docs/DOMAIN.md](docs/DOMAIN.md).
 
 ## 6. Fluxos principais
 
@@ -200,7 +200,7 @@ Métrica interna prioritária: tempo necessário para registrar um plantão.
 ## 10. Regras de negócio já identificáveis
 
 1. Um plantão pertence ao usuário que o registrou.
-2. Um plantão pode estar associado a um local de trabalho.
+2. Todo plantão deve estar associado a um local de trabalho.
 3. Um plantão pode estar associado a um contato e/ou a um responsável pelo pagamento.
 4. Registrar um plantão realizado com valor definido deve gerar uma obrigação financeira acompanhável; a previsão de pagamento é opcional.
 5. Plantão agendado pode não ter valor; plantão realizado exige valor definido.
@@ -212,9 +212,11 @@ Métrica interna prioritária: tempo necessário para registrar um plantão.
 11. Pagamentos válidos não podem exceder o valor devido no MVP.
 12. Plantões cancelados não entram nas métricas de realizado ou financeiro.
 13. Edições não podem apagar ou modificar silenciosamente pagamentos existentes.
-14. Dados de usuários diferentes não podem ser misturados ou expostos.
+14. Após a realização, o valor devido da obrigação é a fonte de verdade financeira; o valor no plantão permanece histórico.
+15. A data de um pagamento não pode ser anterior à data civil de início do plantão.
+16. Dados de usuários diferentes não podem ser misturados ou expostos.
 
-As regras financeiras, transições e casos extremos estão formalizadas em [docs/DOMAIN.md](C:/Users/Maick/Documents/plantao%20saas/docs/DOMAIN.md).
+As regras financeiras, transições e casos extremos estão formalizadas em [docs/DOMAIN.md](docs/DOMAIN.md).
 
 ## 11. Direção técnica inicial
 
@@ -272,10 +274,7 @@ Possíveis evoluções, condicionadas à validação do MVP:
 
 As decisões ainda abertas são:
 
-- política exata para corrigir o valor de uma obrigação que já possui pagamentos;
-- se plantões agendados podem ficar sem local;
-- se pagamentos anteriores à data do plantão (adiantamentos) serão permitidos;
 - política de exclusão de conta, retenção e eventual exportação antes do lançamento público;
 - necessidade e canal de notificações futuras.
 
-O schema, ownership, RLS, índices e operações transacionais estão detalhados em [docs/DATABASE.md](C:/Users/Maick/Documents/plantao saas/docs/DATABASE.md) e [docs/ARCHITECTURE.md](C:/Users/Maick/Documents/plantao saas/docs/ARCHITECTURE.md).
+O schema, ownership, RLS, índices e operações transacionais estão detalhados em [docs/DATABASE.md](docs/DATABASE.md) e [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

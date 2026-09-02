@@ -6,6 +6,7 @@ Este é um desenho para a próxima fase. Os blocos são pseudo-SQL ilustrativos;
 
 - PostgreSQL com UUID como identificador.
 - Todas as tabelas de domínio têm `id`, `user_id`, `created_at` e `updated_at` quando aplicável.
+- Toda tabela que for alvo de FK composta `(user_id, id)` terá PK `id` e UNIQUE `(user_id, id)`.
 - `user_id` referencia `auth.users(id)` e participa de FKs compostas de ownership.
 - Datas são `date`; instantes são `timestamptz`.
 - Dinheiro é inteiro em centavos e sempre acompanhado de `currency_code`.
@@ -40,7 +41,7 @@ RLS: usuário só pode SELECT/UPDATE sua própria linha; INSERT fica restrito a 
 | `archived_at` | `timestamptz` | sim |
 | `created_at`, `updated_at` | `timestamptz` | não |
 
-Unique sugerida: `(user_id, normalized_name)` para evitar duplicatas acidentais, se a normalização for definida. Índice: `(user_id, archived_at, name)`.
+Constraints: PK `id` e UNIQUE `(user_id, id)` para ser alvo de FKs compostas; UNIQUE `(user_id, normalized_name)` é opcional para evitar duplicatas após definir normalização. Índice: `(user_id, archived_at, name)`.
 
 RLS: SELECT/INSERT/UPDATE somente do próprio usuário; DELETE bloqueado como regra de produto quando referenciado, preferindo arquivar.
 
@@ -58,7 +59,7 @@ RLS: SELECT/INSERT/UPDATE somente do próprio usuário; DELETE bloqueado como re
 | `archived_at` | `timestamptz` | sim |
 | `created_at`, `updated_at` | `timestamptz` | não |
 
-Unique por nome não é obrigatória, pois duas pessoas podem ter o mesmo nome. Índice: `(user_id, archived_at, name)`.
+PK `id` e UNIQUE `(user_id, id)` para permitir FKs compostas. Unique por nome não é obrigatória, pois duas pessoas podem ter o mesmo nome. Índice: `(user_id, archived_at, name)`.
 
 RLS: igual a `locations`; arquivamento preserva referências históricas.
 
@@ -70,7 +71,7 @@ RLS: igual a `locations`; arquivamento preserva referências históricas.
 |---|---|---|
 | `id` | `uuid` | não; PK |
 | `user_id` | `uuid` | não; FK Auth |
-| `location_id` | `uuid` | sim |
+| `location_id` | `uuid` | não |
 | `referrer_contact_id` | `uuid` | sim |
 | `starts_at` | `timestamptz` | não |
 | `ends_at` | `timestamptz` | não |
@@ -84,11 +85,13 @@ Checks:
 
 - `ends_at > starts_at`;
 - `state` pertence ao conjunto permitido;
-- `amount_cents IS NULL` somente para `scheduled`;
-- `amount_cents >= 0` quando presente;
+- `state = 'scheduled'` permite `amount_cents` nulo ou positivo;
+- `state IN ('realized', 'cancelled')` exige `amount_cents > 0`;
 - `currency_code` pertence ao conjunto suportado.
 
-FKs compostas `(user_id, location_id)` e `(user_id, referrer_contact_id)` para as entidades do mesmo usuário. Índices: `(user_id, state, starts_at)` para calendário/próximos e `(user_id, state, starts_at)` cobre consultas mensais por período.
+`shifts.amount_cents` é valor combinado/estimado enquanto agendado. Na RPC de realização, ele é validado e copiado para `obligations.amount_due_cents`; depois disso, a obrigação é a fonte de verdade financeira e o valor do plantão é apenas histórico. Alterações financeiras posteriores devem atualizar a obrigação e o valor histórico do plantão na mesma RPC, nunca por updates independentes.
+
+Constraint UNIQUE `(user_id, id)` permite FKs compostas `(user_id, location_id)` e `(user_id, referrer_contact_id)` para entidades do mesmo usuário. Índices: `(user_id, state, starts_at)` para calendário/próximos e consultas mensais.
 
 RLS: SELECT/INSERT/UPDATE do próprio usuário; DELETE deve ser restrito e não permitido para realizado com efeitos financeiros. A transição de estado realizada é RPC.
 
@@ -116,9 +119,12 @@ Constraints:
 - `payer_type = 'location'` exige location preenchido e contact nulo;
 - `payer_type = 'contact'` exige contact preenchido e location nulo;
 - FK composta `(user_id, shift_id)` para `shifts`;
+- PK `id` e UNIQUE `(user_id, id)` para ser alvo das FKs compostas;
 - FK composta para o local ou contato pagador;
 - unique `(user_id, shift_id)` garante plantão com no máximo uma obrigação;
 - obrigação só pode ser criada para shift `realized` via RPC/constraint operacional.
+
+PK `id` e UNIQUE `(user_id, id)` tornam a obrigação alvo de FKs compostas de pagamentos e demais relações.
 
 Índices: `(user_id, due_date)` para próximos/vencidos; `(user_id, voided_at, due_date)` para obrigações abertas. `received` e `balance` não são colunas armazenadas.
 
@@ -144,9 +150,10 @@ Checks:
 
 - `amount_cents > 0`;
 - moeda igual à moeda da obrigação, garantida por operação/FK composta ou validação transacional;
-- pagamento válido não pode fazer a soma superar `amount_due_cents`.
+- pagamento válido não pode fazer a soma superar `amount_due_cents`; a checagem deve ocorrer na RPC com bloqueio da obrigação.
+- `payment_date` não pode ser anterior à data civil de início do plantão; essa validação é transacional/RPC, convertendo `starts_at` ao timezone do perfil.
 
-FK composta `(user_id, obligation_id)` impede pagamento de obrigação de outro usuário. Índices: `(user_id, payment_date)` para recebido no mês e `(user_id, obligation_id, voided_at)` para saldo.
+PK `id` e UNIQUE `(user_id, id)` permitem a FK composta `(user_id, obligation_id)`, que impede pagamento de obrigação de outro usuário. Índices: `(user_id, payment_date)` para recebido no mês e `(user_id, obligation_id, voided_at)` para saldo.
 
 RLS: SELECT do próprio usuário; INSERT/UPDATE via RPC transacional; DELETE direto proibido após criação, usando anulação/correção preservável.
 
@@ -159,6 +166,7 @@ Não são tabelas nem fonte adicional de dados:
 - função de registrar pagamento com bloqueio da obrigação;
 - função de corrigir valor devido;
 - função de anular/corrigir pagamento;
+- função de corrigir valor devido, exigindo `novo amount_due_cents >= soma dos pagamentos válidos` e nunca alterando pagamentos automaticamente;
 - função/query para “hoje” no timezone do perfil.
 
 ## 9. RLS conceitual
@@ -175,4 +183,3 @@ Uma política de pagamento baseada apenas em `payments.user_id = auth.uid()` é 
 ## 10. Exclusão e arquivamento
 
 `locations` e `contacts` serão arquiváveis. `shifts` realizados, `obligations` e `payments` serão preservados; correções usam estado de validade/anulação e operações explícitas. A política final de exclusão da conta é decisão pendente antes do lançamento público.
-

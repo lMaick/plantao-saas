@@ -49,7 +49,7 @@ Este documento define o domínio do MVP sem escolher tabelas, SQL, migrations ou
 
 **Atributos conceituais:** data/hora inicial, data/hora final, duração derivada, local, valor quando conhecido, observações, indicação de repasse e estado operacional.
 
-**Relacionamentos:** pertence a um usuário; opcionalmente referencia um local; pode referenciar contato que repassou; quando realizado, origina no máximo uma obrigação financeira própria.
+**Relacionamentos:** pertence a um usuário; referencia obrigatoriamente um local; pode referenciar contato que repassou; quando realizado, origina no máximo uma obrigação financeira própria.
 
 **Invariantes:**
 
@@ -57,7 +57,8 @@ Este documento define o domínio do MVP sem escolher tabelas, SQL, migrations ou
 - fim deve ser posterior ao início em tempo absoluto, permitindo data final no dia seguinte;
 - duração é calculada como `fim - início`, sem armazenamento redundante;
 - plantão agendado pode não ter valor;
-- plantão realizado exige valor devido maior ou igual a zero, mas para gerar obrigação financeira o valor deve ser definido;
+- plantão agendado ou cancelado pode ter valor nulo ou positivo;
+- plantão realizado exige valor definido e positivo;
 - plantão cancelado não pode voltar a ser realizado sem uma ação explícita de correção definida posteriormente.
 
 ### Obrigação financeira
@@ -103,7 +104,7 @@ Alternativa futura: uma entidade independente “Parte pagadora” permitiria or
 - Usuário → Locais: 1:N.
 - Usuário → Contatos: 1:N.
 - Usuário → Plantões: 1:N.
-- Plantão → Local: N:1 opcional (um local pode ter muitos plantões; plantão agendado pode ficar sem local apenas se essa decisão de UX for aprovada).
+- Plantão → Local: N:1 obrigatório (um local pode ter muitos plantões).
 - Plantão → Contato repassador: N:1 opcional.
 - Plantão → Obrigação: 1:0..1; agendado não possui obrigação efetiva, realizado possui exatamente uma se houver valor definido.
 - Obrigação → Responsável: N:1, com alternativa tipada Local ou Contato e exatamente um responsável por obrigação.
@@ -116,6 +117,8 @@ Alternativa futura: uma entidade independente “Parte pagadora” permitiria or
 - **Agendado:** plantão futuro ou ainda não confirmado como executado; pode ter valor desconhecido e não gera obrigação efetiva.
 - **Realizado:** trabalho confirmado; exige horários válidos e valor definido; gera obrigação financeira.
 - **Cancelado:** não será executado; não entra em “trabalhado” nem cria obrigação. Deve permanecer no histórico operacional quando já existia.
+
+Enquanto agendado, `amount` é combinado/estimado. Na transição para realizado, o valor validado é copiado para a obrigação; depois disso, a obrigação é a fonte de verdade financeira e o valor do plantão é apenas histórico.
 
 ### Transições válidas
 
@@ -181,7 +184,7 @@ Cada pagamento reduz o saldo. O recebimento integral ocorre apenas quando o sald
 - **Sem vencimento:** saldo pendente não é atrasado.
 - **Cancelado:** não compõe métricas de realizado ou financeiro; histórico não desaparece se já houver efeitos.
 - **Contato/local removido:** desativar ou preservar snapshot de exibição; nunca quebrar o histórico.
-- **Pagamento anterior ao plantão:** permitir apenas se o produto decidir que adiantamentos fazem parte do MVP; recomendação: rejeitar no MVP, pois a regra de negócio ainda não foi aprovada.
+- **Pagamento anterior ao plantão:** proibido no MVP; a data do pagamento deve ser igual ou posterior à data civil de início do plantão no timezone do usuário.
 - **Arredondamento:** BRL em centavos inteiros; duração pode ser exibida em minutos e formatada em horas/minutos.
 - **Timezone:** datas civis e cálculo de atraso usam timezone configurado do usuário; instantes de pagamento devem ser convertidos consistentemente para esse contexto.
 

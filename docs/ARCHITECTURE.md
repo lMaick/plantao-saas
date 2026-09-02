@@ -61,7 +61,7 @@ Motivos:
 - defesa em profundidade contra FKs encadeadas incorretas;
 - facilidade para exportação e exclusão futura.
 
-Além disso, FKs compostas `(user_id, id)` devem garantir que referências entre entidades pertençam ao mesmo usuário. RLS e ownership explícito não substituem um ao outro.
+Além disso, cada tabela alvo de uma FK composta terá UNIQUE `(user_id, id)`, e as FKs compostas `(user_id, id)` garantirão que referências entre entidades pertençam ao mesmo usuário. RLS e ownership explícito não substituem um ao outro.
 
 ## 5. Leitura e escrita
 
@@ -75,6 +75,7 @@ Consultas server-side com filtros por usuário e RLS. Uma view de leitura financ
 - Marcar plantão como realizado + criar obrigação deve ser uma operação atômica única.
 - Registrar, corrigir ou anular pagamento deve recalcular/validar o saldo dentro da mesma transação.
 - Alterar valor devido após pagamentos deve ocorrer por operação transacional própria.
+- O valor do plantão é estimativa/histórico enquanto agendado; após realização, `obligations.amount_due_cents` é a fonte financeira exclusiva. A operação de correção mantém a informação histórica do plantão sincronizada na mesma transação.
 
 ## 6. Operações atômicas
 
@@ -82,9 +83,10 @@ As operações abaixo devem ser PostgreSQL functions/RPC ou chamadas server-side
 
 1. **Realizar plantão:** validar estado, horários e valor; alterar o estado e criar a única obrigação.
 2. **Registrar pagamento:** bloquear a obrigação (`FOR UPDATE` conceitualmente), somar pagamentos válidos, rejeitar excesso e inserir o pagamento.
-3. **Corrigir valor devido:** bloquear obrigação, verificar total recebido e aceitar somente novo valor maior ou igual ao recebido.
+3. **Corrigir valor devido:** bloquear obrigação, verificar total recebido e aceitar somente `novo amount_due_cents >= soma dos pagamentos válidos`; nunca reduzir, apagar ou anular pagamentos automaticamente. Atualizar o valor histórico do shift na mesma transação.
 4. **Corrigir/anular pagamento:** atualizar sua validade e validar novamente que o saldo não fique negativo.
 5. **Correção controlada de realizado para cancelado:** preservar obrigação e pagamentos e exigir regra explícita para saldo; não é exclusão.
+6. **Validar data de pagamento:** rejeitar `payment_date` anterior à data civil de início do plantão no timezone do perfil.
 
 A aplicação não deve fazer “update e depois insert” em duas requisições independentes para os casos acima.
 
@@ -97,13 +99,15 @@ A aplicação não deve fazer “update e depois insert” em duas requisições
 
 Ao receber um horário local, a aplicação combina data, hora e timezone do perfil e converte para `timestamptz`. Na UI, timestamps são convertidos de volta ao timezone do usuário. A duração é `fim - início`.
 
-O atraso compara `current_date` no timezone do usuário com `due_date`: na própria data de vencimento não atrasa; começa no dia seguinte. Consultas que usam o relógio devem calcular o “hoje” local explicitamente, sem depender do timezone da sessão do banco.
+O atraso compara `current_date` no timezone do usuário com `due_date`: na própria data de vencimento não atrasa; começa no dia seguinte. Consultas que usam o relógio devem calcular o “hoje” local explicitamente, sem depender do timezone da sessão do banco. A data de pagamento deve ser igual ou posterior à data civil de início do plantão; essa regra é validada pela RPC.
 
 ## 8. Dinheiro
 
 Usar inteiros em centavos (`bigint` ou `integer` conforme limite definido) e `currency_code` de três letras, inicialmente `BRL`. Não usar `float` nem `double precision`. A moeda da obrigação deve ser persistida para impedir que uma futura alteração da moeda padrão reinterprete históricos. Não haverá conversão cambial no MVP.
 
 O frontend envia valores normalizados; a camada de domínio converte e valida centavos antes da escrita. Formatação para BRL ocorre somente na apresentação.
+
+Depois de realizado, nenhum saldo ou métrica financeira deve ser recalculado apenas a partir de `shifts.amount_cents`; o valor devido da obrigação prevalece.
 
 ## 9. Responsável pelo pagamento
 
@@ -167,4 +171,3 @@ Componentes visuais não devem conter regras financeiras. Queries e casos de uso
 - Um pagamento com `user_id` correto, mas obrigação de outro usuário, deve falhar na FK composta e na política RLS.
 - Nunca expor service role key no navegador.
 - Dados clínicos de pacientes não fazem parte do domínio.
-
