@@ -10,6 +10,8 @@ begin
 end;
 $$;
 
+revoke all on function public.set_updated_at() from public, anon, authenticated;
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   timezone text not null default 'America/Sao_Paulo',
@@ -156,6 +158,22 @@ for each row execute function public.set_updated_at();
 create trigger payments_set_updated_at
 before update on public.payments
 for each row execute function public.set_updated_at();
+
+revoke all on table
+  public.profiles,
+  public.locations,
+  public.contacts,
+  public.shifts,
+  public.obligations,
+  public.payments
+from public, anon, authenticated;
+
+grant select, insert, update on table public.profiles to authenticated;
+grant select, insert, update on table public.locations to authenticated;
+grant select, insert, update on table public.contacts to authenticated;
+grant select, insert, update on table public.shifts to authenticated;
+grant select, update on table public.obligations to authenticated;
+grant select, update on table public.payments to authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.locations enable row level security;
