@@ -151,7 +151,7 @@ Este documento registra decisões confirmadas para evitar que escolhas important
 ### D-025 — Sessão SSR e garantia do perfil
 
 - **Status:** Implementada na Missão 5B.
-- **Decisão:** Supabase Auth usa o cliente SSR do `@supabase/ssr`; o proxy do Next.js atualiza cookies e protege a área autenticada. O perfil é criado no primeiro acesso autenticado, usando apenas o ID retornado pelo Auth e os defaults do banco.
+- **Decisão:** Supabase Auth usa o cliente SSR do `@supabase/ssr`; o proxy do Next.js atualiza cookies e protege a área autenticada. O perfil é criado ao entrar em `/app`, usando apenas o ID retornado pelo Auth e os defaults do banco.
 - **Implicação:** O cadastro permanece compatível com confirmação de e-mail ligada ou desligada, sem criar perfil para uma identidade que ainda não tenha sessão autenticada.
 
 ## Decisões pendentes

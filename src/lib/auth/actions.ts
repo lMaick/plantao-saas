@@ -3,7 +3,6 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,34 +25,39 @@ export type AuthState = {
   success?: string;
 };
 
-async function ensureProfile(supabase: SupabaseClient) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("A sessão autenticada é necessária para criar o perfil.");
-  }
-
-  const { error } = await supabase.from("profiles").insert({ id: user.id });
-
-  if (error && error.code !== "23505") {
-    throw new Error(`Não foi possível criar o perfil: ${error.message}`);
-  }
-}
-
 async function getAuthConfirmUrl() {
   const requestHeaders = await headers();
+  const requestOrigin = requestHeaders.get("origin");
+
+  if (requestOrigin) {
+    try {
+      const origin = new URL(requestOrigin);
+
+      if (origin.protocol === "http:" || origin.protocol === "https:") {
+        return `${origin.origin}/auth/confirm`;
+      }
+    } catch {
+      // Fall through to the proxy-aware host headers.
+    }
+  }
+
   const forwardedHost = requestHeaders.get("x-forwarded-host");
-  const host = forwardedHost ?? requestHeaders.get("host");
   const forwardedProto = requestHeaders.get("x-forwarded-proto");
-  const protocol = forwardedProto?.split(",")[0] ?? "https";
+  const host = forwardedHost ?? requestHeaders.get("host");
 
   if (!host) {
     throw new Error("Não foi possível determinar a origem da aplicação.");
   }
 
-  return `${protocol}://${host}/auth/confirm`;
+  const normalizedHost = host.split(",")[0].trim();
+  const protocol =
+    forwardedProto?.split(",")[0].trim() ||
+    (normalizedHost.startsWith("localhost:") ||
+    normalizedHost.startsWith("127.0.0.1:")
+      ? "http"
+      : "https");
+
+  return `${protocol}://${normalizedHost}/auth/confirm`;
 }
 
 export async function signUp(
@@ -90,7 +94,6 @@ export async function signUp(
     };
   }
 
-  await ensureProfile(supabase);
   redirect("/app");
 }
 
@@ -117,7 +120,6 @@ export async function signIn(
     return { error: "E-mail ou senha inválidos." };
   }
 
-  await ensureProfile(supabase);
   redirect("/app");
 }
 
