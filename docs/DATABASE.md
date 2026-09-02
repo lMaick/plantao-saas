@@ -85,8 +85,9 @@ Checks:
 
 - `ends_at > starts_at`;
 - `state` pertence ao conjunto permitido;
-- `state = 'scheduled'` permite `amount_cents` nulo ou positivo;
-- `state IN ('realized', 'cancelled')` exige `amount_cents > 0`;
+- se `amount_cents` estiver preenchido, deve ser `> 0`;
+- `state = 'realized'` exige `amount_cents IS NOT NULL`;
+- `scheduled` e `cancelled` permitem `amount_cents IS NULL`;
 - `currency_code` pertence ao conjunto suportado.
 
 `shifts.amount_cents` é valor combinado/estimado enquanto agendado. Na RPC de realização, ele é validado e copiado para `obligations.amount_due_cents`; depois disso, a obrigação é a fonte de verdade financeira e o valor do plantão é apenas histórico. Alterações financeiras posteriores devem atualizar a obrigação e o valor histórico do plantão na mesma RPC, nunca por updates independentes.

@@ -203,7 +203,7 @@ Métrica interna prioritária: tempo necessário para registrar um plantão.
 2. Todo plantão deve estar associado a um local de trabalho.
 3. Um plantão pode estar associado a um contato e/ou a um responsável pelo pagamento.
 4. Registrar um plantão realizado com valor definido deve gerar uma obrigação financeira acompanhável; a previsão de pagamento é opcional.
-5. Plantão agendado pode não ter valor; plantão realizado exige valor definido.
+5. Plantão agendado ou cancelado pode não ter valor; se informado, o valor deve ser positivo. Plantão realizado exige valor definido e positivo.
 6. Plantão realizado origina uma obrigação; plantão agendado não possui obrigação efetiva.
 7. Uma obrigação pode ter zero, um ou vários pagamentos parciais.
 8. Valor recebido é a soma dos pagamentos válidos; saldo é valor devido menos valor recebido.

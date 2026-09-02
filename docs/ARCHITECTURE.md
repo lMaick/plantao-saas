@@ -76,6 +76,7 @@ Consultas server-side com filtros por usuário e RLS. Uma view de leitura financ
 - Registrar, corrigir ou anular pagamento deve recalcular/validar o saldo dentro da mesma transação.
 - Alterar valor devido após pagamentos deve ocorrer por operação transacional própria.
 - O valor do plantão é estimativa/histórico enquanto agendado; após realização, `obligations.amount_due_cents` é a fonte financeira exclusiva. A operação de correção mantém a informação histórica do plantão sincronizada na mesma transação.
+- A restrição de valor do plantão é condicional ao estado: valores informados são positivos; somente `realized` exige valor não nulo; `scheduled` e `cancelled` podem permanecer sem valor.
 
 ## 6. Operações atômicas
 
