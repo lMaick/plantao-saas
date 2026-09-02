@@ -27,6 +27,16 @@ npm run build     # build de produção
 npm run start     # servir o build
 ```
 
+## Supabase local
+
+O projeto inclui a configuração e a migration inicial do Supabase em `supabase/`.
+Com Docker Desktop ou Podman instalado, use:
+
+```bash
+npx supabase start
+npx supabase db reset
+```
+
 ## Stack
 
 - Next.js com App Router e TypeScript
