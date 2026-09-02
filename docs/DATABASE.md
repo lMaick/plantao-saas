@@ -198,3 +198,5 @@ A migration financeira expõe somente para `authenticated` as funções `SECURIT
 `anon` e `public` não possuem execução dessas funções. O INSERT direto de `obligations` e `payments` permanece sem grant. UPDATE direto de `obligations`, `payments` e `shifts` é revogado para `authenticated`; alterações financeiras e a realização passam pelas RPCs.
 
 O INSERT direto de `shifts` permanece disponível somente para novos registros `scheduled`; um trigger rejeita tentativas de inserir diretamente um plantão `realized`. A transição para realizado ocorre exclusivamente em `realize_shift`.
+
+Nas operações que envolvem uma obrigação e um pagamento, a ordem de locks é sempre `obligation -> payment`. `realize_shift` usa `shift -> criação da obligation`, e `correct_obligation_amount` usa `obligation -> shift`; nenhuma RPC existente adquire esses pares na ordem inversa.

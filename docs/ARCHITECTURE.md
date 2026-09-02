@@ -182,3 +182,5 @@ A migration financeira implementa `realize_shift`, `register_payment`, `correct_
 Como as tabelas financeiras não concedem INSERT e não concedem UPDATE direto de valores financeiros, a Data API não pode contornar as operações transacionais. UPDATE direto de `shifts` também é revogado para impedir realização sem obrigação; a realização ocorre somente em `realize_shift`.
 
 Um trigger complementar rejeita INSERT direto de `shifts` com estado `realized`, mantendo a obrigação como efeito obrigatório da operação oficial de realização.
+
+Para evitar ciclos de locks, operações que envolvem obrigação e pagamento seguem a ordem `obligation -> payment`: `register_payment` bloqueia a obrigação, e `void_payment`/`correct_payment` identificam a obrigação, bloqueiam-na e só então bloqueiam o pagamento. `correct_obligation_amount` mantém `obligation -> shift`, enquanto `realize_shift` usa `shift -> criação da obligation`.

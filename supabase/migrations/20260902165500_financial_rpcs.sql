@@ -281,14 +281,38 @@ set search_path = ''
 as $$
 declare
   v_user_id uuid := auth.uid();
+  v_obligation_id uuid;
+  v_voided_at timestamptz;
 begin
   if v_user_id is null then
     raise exception 'unauthenticated';
   end if;
 
-  perform 1
+  select obligation_id
+    into v_obligation_id
     from public.payments
    where id = p_payment_id
+     and user_id = v_user_id;
+
+  if not found then
+    raise exception 'payment_not_found';
+  end if;
+
+  perform 1
+    from public.obligations
+   where id = v_obligation_id
+     and user_id = v_user_id
+   for update;
+
+  if not found then
+    raise exception 'obligation_not_found';
+  end if;
+
+  select voided_at
+    into v_voided_at
+    from public.payments
+   where id = p_payment_id
+     and obligation_id = v_obligation_id
      and user_id = v_user_id
    for update;
 
@@ -296,15 +320,14 @@ begin
     raise exception 'payment_not_found';
   end if;
 
+  if v_voided_at is not null then
+    raise exception 'payment_already_voided';
+  end if;
+
   update public.payments
      set voided_at = now()
    where id = p_payment_id
-     and user_id = v_user_id
-     and voided_at is null;
-
-  if not found then
-    raise exception 'payment_already_voided';
-  end if;
+     and user_id = v_user_id;
 end;
 $$;
 
@@ -323,7 +346,6 @@ declare
   v_user_id uuid := auth.uid();
   v_obligation_id uuid;
   v_currency_code char(3);
-  v_old_amount_cents bigint;
   v_shift_id uuid;
   v_starts_at timestamptz;
   v_timezone text;
@@ -338,13 +360,12 @@ begin
     raise exception 'invalid_amount';
   end if;
 
-  select obligation_id, amount_cents
-    into v_obligation_id, v_old_amount_cents
+  select obligation_id
+    into v_obligation_id
     from public.payments
    where id = p_payment_id
      and user_id = v_user_id
-     and voided_at is null
-   for update;
+     and voided_at is null;
 
   if not found then
     raise exception 'payment_not_found';
@@ -360,6 +381,18 @@ begin
 
   if not found then
     raise exception 'obligation_not_found';
+  end if;
+
+  perform 1
+    from public.payments
+   where id = p_payment_id
+     and obligation_id = v_obligation_id
+     and user_id = v_user_id
+     and voided_at is null
+   for update;
+
+  if not found then
+    raise exception 'payment_not_found';
   end if;
 
   select s.starts_at
@@ -431,15 +464,15 @@ revoke update on table public.shifts from authenticated;
 revoke update on table public.obligations, public.payments from authenticated;
 
 revoke execute on function public.realize_shift(uuid, bigint, text, uuid, date)
-  from public, anon;
+  from public, anon, authenticated;
 revoke execute on function public.register_payment(uuid, bigint, date, text)
-  from public, anon;
+  from public, anon, authenticated;
 revoke execute on function public.correct_obligation_amount(uuid, bigint)
-  from public, anon;
+  from public, anon, authenticated;
 revoke execute on function public.void_payment(uuid)
-  from public, anon;
+  from public, anon, authenticated;
 revoke execute on function public.correct_payment(uuid, bigint, date, text)
-  from public, anon;
+  from public, anon, authenticated;
 revoke all on function public.prevent_direct_realized_shift()
   from public, anon, authenticated;
 
