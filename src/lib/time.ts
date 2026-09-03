@@ -1,12 +1,15 @@
 /**
  * Converte uma data/hora civil em um timezone IANA para um Date UTC (timestamptz).
  *
- * Entrada: "YYYY-MM-DDTHH:mm" e um IANA timezone (ex.: "America/Sao_Paulo").
+ * Entrada: "YYYY-MM-DDTHH:mm[:ss]" e um IANA timezone (ex.: "America/Sao_Paulo").
  * Saída: um Date correspondente ao instante UTC daquele wall clock.
  *
- * A estratégia usa Intl.DateTimeFormat para descobrir o offset do timezone
- * no instante alvo e aplica esse offset ao wall clock.
+ * A conversão usa @date-fns/tz para tratar corretamente o timezone IANA
+ * (incluindo DST e mudanças sazonais) e valida por round-trip que a data
+ * civil realmente existe (recusa 2026-02-31, 2026-13-01, etc.).
  */
+import { TZDate } from "@date-fns/tz";
+
 export function wallClockToUtc(
   wallClock: string,
   timeZone: string,
@@ -21,7 +24,7 @@ export function wallClockToUtc(
 
   const [, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr] = match;
   const year = Number(yearStr);
-  const month = Number(monthStr);
+  const month = Number(monthStr); // 1..12
   const day = Number(dayStr);
   const hour = Number(hourStr);
   const minute = Number(minuteStr);
@@ -53,10 +56,12 @@ export function wallClockToUtc(
     throw new Error("Data/hora fora dos limites esperados.");
   }
 
-  // 1) Constrói um Date com os componentes tratados como UTC para ter uma referência.
-  const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  // TZDate aceita mês 0-based.
+  const tzDate = new TZDate(year, month - 1, day, hour, minute, second, timeZone);
+  const utc = new Date(tzDate.getTime());
 
-  // 2) Descobre qual seria o wall clock no timezone alvo para esse instante.
+  // Round-trip: renderizar o instante UTC no mesmo IANA timezone
+  // e confirmar que batem com os componentes informados.
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -66,38 +71,26 @@ export function wallClockToUtc(
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-  }).formatToParts(new Date(asUtc));
+  }).formatToParts(utc);
 
   const get = (type: string) =>
     Number(parts.find((part) => part.type === type)?.value);
 
-  const tzYear = get("year");
-  const tzMonth = get("month");
-  const tzDay = get("day");
-  const tzHour = get("hour");
-  const tzMinute = get("minute");
-  const tzSecond = get("second");
+  const tzHourRaw = get("hour");
+  const tzHour = tzHourRaw === 24 ? 0 : tzHourRaw;
 
-  // 3) Calcula a diferença entre o wall clock informado e o wall clock observado.
-  // Se tzWall > wall, o timezone está adiantado em relação a UTC, então subtraímos.
-  const tzWallAsUtc = Date.UTC(
-    tzYear,
-    tzMonth - 1,
-    tzDay,
-    tzHour === 24 ? 0 : tzHour,
-    tzMinute,
-    tzSecond,
-  );
-
-  let offsetMinutes = Math.round((tzWallAsUtc - asUtc) / 60000);
-
-  // Caso raro: Intl retorna hour = 24 em vez de 0. Normaliza.
-  if (tzHour === 24) {
-    offsetMinutes -= 24 * 60;
+  if (
+    get("year") !== year ||
+    get("month") !== month ||
+    get("day") !== day ||
+    tzHour !== hour ||
+    get("minute") !== minute ||
+    get("second") !== second
+  ) {
+    throw new Error("Data/hora inválida.");
   }
 
-  // 4) Aplica o offset ao wall clock original.
-  return new Date(asUtc - offsetMinutes * 60000);
+  return utc;
 }
 
 /**

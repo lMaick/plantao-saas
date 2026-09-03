@@ -2,7 +2,7 @@
  * Converte uma string de entrada monetária em centavos (bigint).
  * Aceita formatos brasileiros como "850,00", "1.234,56", "R$ 850,00".
  * Retorna null se a string estiver vazia.
- * Lança erro se o valor for inválido ou <= 0.
+ * Lança erro se o valor for inválido, negativo ou <= 0.
  */
 export function parseAmountToCents(input: string): bigint | null {
   const trimmed = input.trim();
@@ -11,8 +11,15 @@ export function parseAmountToCents(input: string): bigint | null {
     return null;
   }
 
-  // Remove R$, espaços, qualquer caractere que não seja dígito, vírgula, ponto ou sinal.
-  const cleaned = trimmed.replace(/[^\d,.\-]/g, "");
+  // Detectar sinal explicitamente antes de descartar caracteres.
+  // "-" é o único sinal negativo aceito e é sempre rejeitado.
+  // "+" é rejeitado para evitar entradas ambíguas não esperadas.
+  if (trimmed.startsWith("-") || trimmed.startsWith("+")) {
+    throw new Error("O valor deve ser maior que zero.");
+  }
+
+  // Remove tudo que não seja dígito, vírgula ou ponto.
+  const cleaned = trimmed.replace(/[^\d,.]/g, "");
 
   if (cleaned.length === 0) {
     throw new Error("Informe um valor numérico válido.");
