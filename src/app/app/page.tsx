@@ -43,6 +43,22 @@ export default async function AppPage() {
 
         <nav className="space-y-3" aria-label="Atalhos da área profissional">
           <Link
+            href="/app/plantoes"
+            className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 transition hover:border-cyan-300 hover:bg-slate-900/70"
+          >
+            <span className="space-y-1">
+              <span className="block text-base font-semibold text-white">
+                Plantões
+              </span>
+              <span className="block text-sm text-slate-400">
+                Cadastre e acompanhe seus próximos plantões.
+              </span>
+            </span>
+            <span aria-hidden className="text-cyan-300">
+              →
+            </span>
+          </Link>
+          <Link
             href="/app/locais"
             className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 transition hover:border-cyan-300 hover:bg-slate-900/70"
           >
