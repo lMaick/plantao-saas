@@ -44,6 +44,7 @@ type ObligationRow = {
 type RealizedShift = ShiftWithLocation & {
   obligationId: string;
   amountDueCents: number;
+  currencyCode: string;
   dueDate: string;
   hasObligation: true;
 };
@@ -209,6 +210,7 @@ async function loadPageData() {
         ...base,
         obligationId: obligation.id,
         amountDueCents: obligation.amount_due_cents,
+        currencyCode: obligation.currency_code,
         dueDate: obligation.due_date,
         hasObligation: true,
       } satisfies RealizedShift;
@@ -442,7 +444,7 @@ export default async function ShiftsPage() {
                           <p className="text-lg font-semibold text-white">
                             {formatCurrency(
                               shift.amountDueCents,
-                              shift.currency_code,
+                              shift.currencyCode,
                             )}
                           </p>
                           <p className="text-xs text-slate-400">
