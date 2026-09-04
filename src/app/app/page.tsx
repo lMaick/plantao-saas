@@ -89,6 +89,16 @@ async function loadDashboardData(): Promise<DashboardData> {
     redirect("/login");
   }
 
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .insert({ id: user.id });
+
+  if (profileError && profileError.code !== "23505") {
+    throw new Error(
+      `Não foi possível garantir o perfil: ${profileError.message}`,
+    );
+  }
+
   const now = new Date();
 
   const [
