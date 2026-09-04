@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { RealizeShiftForm } from "@/components/realize-shift-form";
+import { RegisterPaymentForm } from "@/components/register-payment-form";
 import { ShiftForm } from "@/components/shift-form";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -41,11 +42,34 @@ type ObligationRow = {
   due_date: string;
 };
 
+type PaymentRow = {
+  id: string;
+  obligation_id: string;
+  amount_cents: number;
+  currency_code: string;
+  payment_date: string;
+  notes: string | null;
+};
+
 type RealizedShift = ShiftWithLocation & {
   obligationId: string;
   amountDueCents: number;
   currencyCode: string;
   dueDate: string;
+  receivedCents: number;
+  balanceCents: number;
+  // `inconsistent` representa um estado em que o total recebido ultrapassa
+  // o valor devido. Em condições normais o RPC `register_payment` impede
+  // isso, mas a UI precisa tornar a inconsistência visível em vez de
+  // mascará-la com `Math.max(0, ...)`.
+  status: "pending" | "partial" | "settled" | "inconsistent";
+  payments: Array<{
+    id: string;
+    amountCents: number;
+    currencyCode: string;
+    paymentDate: string;
+    notes: string | null;
+  }>;
   hasObligation: true;
 };
 
@@ -80,6 +104,7 @@ async function loadPageData() {
     { data: shiftRows, error: shiftsError },
     { data: realizedRows, error: realizedError },
     { data: obligationRows, error: obligationsError },
+    { data: paymentRows, error: paymentsError },
   ] = await Promise.all([
     supabase.from("profiles").select("timezone").maybeSingle(),
     supabase
@@ -109,6 +134,13 @@ async function loadPageData() {
       .select("id, shift_id, amount_due_cents, currency_code, due_date")
       .eq("user_id", user.id)
       .is("voided_at", null),
+    supabase
+      .from("payments")
+      .select(
+        "id, obligation_id, amount_cents, currency_code, payment_date, notes",
+      )
+      .eq("user_id", user.id)
+      .is("voided_at", null),
   ]);
 
   if (activeLocationsError) {
@@ -132,6 +164,12 @@ async function loadPageData() {
   if (obligationsError) {
     throw new Error(
       `Não foi possível carregar as obrigações financeiras: ${obligationsError.message}`,
+    );
+  }
+
+  if (paymentsError) {
+    throw new Error(
+      `Não foi possível carregar os recebimentos: ${paymentsError.message}`,
     );
   }
 
@@ -182,7 +220,20 @@ async function loadPageData() {
     ]),
   );
 
+  // Agrupa pagamentos válidos por obrigação para derivar recebido e saldo.
+  // Apenas pagamentos com `voided_at IS NULL` entram na soma, conforme a regra
+  // financeira (pagamentos anulados não contam como recebidos).
+  const paymentsByObligationId = new Map<string, PaymentRow[]>();
+  for (const payment of ((paymentRows ?? []) as PaymentRow[]) || []) {
+    const list = paymentsByObligationId.get(payment.obligation_id) ?? [];
+    list.push(payment);
+    paymentsByObligationId.set(payment.obligation_id, list);
+  }
+
   // A obrigação financeira é a fonte de verdade após a realização.
+  // O saldo e o recebido são derivados a partir de:
+  //   - `obligations.amount_due_cents` (devido)
+  //   - soma de `payments.amount_cents` válidos (recebido)
   // Plantões `realized` sem obrigação encontrada são mantidos na lista
   // com um estado de "pendência financeira" — não são descartados nem
   // recebem fallback silencioso para `shifts.amount_cents`.
@@ -206,12 +257,43 @@ async function loadPageData() {
         } satisfies RealizedShiftMissingObligation;
       }
 
+      const payments = paymentsByObligationId.get(obligation.id) ?? [];
+      const receivedCents = payments.reduce(
+        (acc, p) => acc + Number(p.amount_cents ?? 0),
+        0,
+      );
+      const amountDueCents = Number(obligation.amount_due_cents);
+      // Não mascarar inconsistência: o saldo pode ser negativo se o total
+      // recebido ultrapassar o valor devido. A UI decide o que exibir.
+      const balanceCents = amountDueCents - receivedCents;
+      const status: RealizedShift["status"] =
+        receivedCents === 0
+          ? "pending"
+          : receivedCents > amountDueCents
+            ? "inconsistent"
+            : balanceCents === 0
+              ? "settled"
+              : "partial";
+
       return {
         ...base,
         obligationId: obligation.id,
-        amountDueCents: obligation.amount_due_cents,
+        amountDueCents,
         currencyCode: obligation.currency_code,
         dueDate: obligation.due_date,
+        receivedCents,
+        balanceCents,
+        status,
+        payments: payments
+          .slice()
+          .sort((a, b) => b.payment_date.localeCompare(a.payment_date))
+          .map((p) => ({
+            id: p.id,
+            amountCents: Number(p.amount_cents),
+            currencyCode: p.currency_code,
+            paymentDate: p.payment_date,
+            notes: p.notes,
+          })),
         hasObligation: true,
       } satisfies RealizedShift;
     })
@@ -243,6 +325,32 @@ function formatCivilDate(isoDate: string): string {
     return isoDate;
   }
   return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function statusLabel(status: RealizedShift["status"]): string {
+  if (status === "settled") {
+    return "Recebido";
+  }
+  if (status === "partial") {
+    return "Recebido parcialmente";
+  }
+  if (status === "inconsistent") {
+    return "Pendência financeira";
+  }
+  return "A receber";
+}
+
+function statusTone(status: RealizedShift["status"]): string {
+  if (status === "settled") {
+    return "text-emerald-300";
+  }
+  if (status === "partial") {
+    return "text-amber-300";
+  }
+  if (status === "inconsistent") {
+    return "text-amber-300";
+  }
+  return "text-cyan-200";
 }
 
 export default async function ShiftsPage() {
@@ -392,7 +500,8 @@ export default async function ShiftsPage() {
               Realizados / A receber
             </h2>
             <p className="text-sm text-slate-400">
-              Plantões já concluídos e seus valores previstos para pagamento.
+              Plantões já concluídos, valores previstos, recebidos e saldo
+              restante.
             </p>
           </header>
 
@@ -437,19 +546,90 @@ export default async function ShiftsPage() {
                         <p className="text-xs text-slate-500">{duration}</p>
                       </div>
                       {shift.hasObligation ? (
-                        <div className="text-left sm:text-right">
-                          <p className="text-sm font-medium uppercase tracking-wider text-emerald-300">
-                            A receber
-                          </p>
-                          <p className="text-lg font-semibold text-white">
-                            {formatCurrency(
-                              shift.amountDueCents,
-                              shift.currencyCode,
+                        <div className="space-y-3 text-left sm:text-right">
+                          <div>
+                            <p
+                              className={`text-sm font-medium uppercase tracking-wider ${statusTone(
+                                shift.status,
+                              )}`}
+                            >
+                              {statusLabel(shift.status)}
+                            </p>
+                            {shift.status === "inconsistent" ? (
+                              <p className="text-xs text-slate-300">
+                                O total recebido está maior que o valor devido
+                                deste plantão.
+                              </p>
+                            ) : (
+                              shift.status !== "settled" && (
+                                <p className="text-xs text-slate-400">
+                                  Previsto para {formatCivilDate(shift.dueDate)}
+                                </p>
+                              )
                             )}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            Previsto para {formatCivilDate(shift.dueDate)}
-                          </p>
+                          </div>
+                          {shift.status === "inconsistent" ? (
+                            <dl className="grid grid-cols-2 gap-3 text-left sm:text-right">
+                              <div>
+                                <dt className="text-xs uppercase tracking-wider text-slate-400">
+                                  Valor devido
+                                </dt>
+                                <dd className="text-sm font-semibold text-white">
+                                  {formatCurrency(
+                                    shift.amountDueCents,
+                                    shift.currencyCode,
+                                  )}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wider text-slate-400">
+                                  Recebido
+                                </dt>
+                                <dd className="text-sm font-semibold text-white">
+                                  {formatCurrency(
+                                    shift.receivedCents,
+                                    shift.currencyCode,
+                                  )}
+                                </dd>
+                              </div>
+                            </dl>
+                          ) : (
+                            <dl className="grid grid-cols-3 gap-3 text-left sm:text-right">
+                              <div>
+                                <dt className="text-xs uppercase tracking-wider text-slate-400">
+                                  Valor devido
+                                </dt>
+                                <dd className="text-sm font-semibold text-white">
+                                  {formatCurrency(
+                                    shift.amountDueCents,
+                                    shift.currencyCode,
+                                  )}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wider text-slate-400">
+                                  Recebido
+                                </dt>
+                                <dd className="text-sm font-semibold text-white">
+                                  {formatCurrency(
+                                    shift.receivedCents,
+                                    shift.currencyCode,
+                                  )}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wider text-slate-400">
+                                  Saldo
+                                </dt>
+                                <dd className="text-sm font-semibold text-white">
+                                  {formatCurrency(
+                                    shift.balanceCents,
+                                    shift.currencyCode,
+                                  )}
+                                </dd>
+                              </div>
+                            </dl>
+                          )}
                         </div>
                       ) : (
                         <div className="text-left sm:text-right">
@@ -467,6 +647,48 @@ export default async function ShiftsPage() {
                       <p className="mt-3 whitespace-pre-line text-sm text-slate-300">
                         {shift.notes}
                       </p>
+                    )}
+
+                    {shift.hasObligation &&
+                      shift.status !== "inconsistent" &&
+                      shift.balanceCents > 0 && (
+                        <RegisterPaymentForm
+                          obligationId={shift.obligationId}
+                          defaultAmountCents={shift.balanceCents}
+                          currencyCode={shift.currencyCode}
+                        />
+                      )}
+
+                    {shift.hasObligation && shift.payments.length > 0 && (
+                      <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                          Recebimentos
+                        </p>
+                        <ul className="mt-2 space-y-2">
+                          {shift.payments.map((payment) => (
+                            <li
+                              key={payment.id}
+                              className="space-y-1"
+                            >
+                              <p className="text-sm text-slate-200">
+                                <span className="font-semibold text-white">
+                                  {formatCivilDate(payment.paymentDate)}
+                                </span>{" "}
+                                —{" "}
+                                {formatCurrency(
+                                  payment.amountCents,
+                                  payment.currencyCode,
+                                )}
+                              </p>
+                              {payment.notes && (
+                                <p className="text-xs text-slate-400">
+                                  {payment.notes}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </li>
                 );
