@@ -229,3 +229,36 @@ export function formatCurrency(cents: number, currency: string): string {
     return `${currency} ${(cents / 100).toFixed(2)}`;
   }
 }
+
+/**
+ * Devolve a data civil atual (`YYYY-MM-DD`) em um timezone IANA.
+ *
+ * Importante: o cálculo é feito a partir do wall clock do usuário, não de
+ * `new Date().toISOString().slice(0,10)`, para que regras como "atraso",
+ * "vence hoje" e "recebido neste mês" sigam o calendário local.
+ */
+export function getTodayCivilInTimeZone(
+  date: Date,
+  timeZone: string,
+): string {
+  const { year, month, day } = getWallClockParts(date, timeZone);
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * Devolve o intervalo civil do mês atual (`YYYY-MM-DD`) em um timezone IANA.
+ *
+ * `start` é o primeiro dia do mês e `end` é o último. Usado para somar
+ * pagamentos do mês corrente sem converter `payment_date` (que já é
+ * `date` civil) para UTC.
+ */
+export function getCurrentMonthRangeInTimeZone(
+  date: Date,
+  timeZone: string,
+): { start: string; end: string; year: number; month: number } {
+  const { year, month } = getWallClockParts(date, timeZone);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const start = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
+  const end = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { start, end, year, month };
+}
